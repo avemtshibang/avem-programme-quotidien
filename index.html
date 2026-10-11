@@ -1,0 +1,173 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101827">
+<title>AVEM - Mon Programme Quotidien</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 20px 14px;
+  font-family: -apple-system, Arial, sans-serif;
+  background: #f1f5f9; color: #172033;
+}
+header {
+  background: #101827; color: white;
+  padding: 24px 20px; border-radius: 18px;
+  margin-bottom: 20px;
+}
+header h1 { margin: 0 0 8px; font-size: 25px; }
+header p { margin: 0; color: #cbd5e1; }
+.date { font-weight: bold; margin-top: 18px; }
+.card {
+  background: white; padding: 18px;
+  border-radius: 16px; margin-bottom: 14px;
+  box-shadow: 0 3px 12px #00000008;
+}
+.progress { background: #e2e8f0; height: 9px;
+  border-radius: 10px; overflow: hidden; margin: 12px 0; }
+.bar { height: 100%; width: 0; background: #16a34a;
+  transition: width .2s; }
+.goal {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 0; border-bottom: 1px solid #e5e7eb;
+}
+.goal:last-child { border-bottom: 0; }
+.goal input { width: 23px; height: 23px; accent-color: #16a34a; }
+.goal label { flex: 1; cursor: pointer; }
+.goal strong { display: block; font-size: 16px; }
+.goal small { display: block; color: #64748b; margin-top: 5px; }
+button {
+  border: 0; border-radius: 10px; padding: 12px 15px;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.secondary { background: #e2e8f0; color: #172033; }
+select { padding: 10px; border-radius: 8px; max-width: 100%; }
+.history-row {
+  padding: 13px 0; border-bottom: 1px solid #e5e7eb;
+}
+.history-row:last-child { border: 0; }
+.muted { color: #64748b; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AVEM</h1>
+  <p>Mon Programme Quotidien</p>
+  <div class="date" id="today"></div>
+</header>
+
+<div class="card">
+  <strong>Ma progression du jour</strong>
+  <p><span id="count">0</span> objectif(s) accompli(s) sur 5</p>
+  <div class="progress"><div class="bar" id="bar"></div></div>
+  <p id="message" class="muted">Chaque jour est une nouvelle occasion de progresser.</p>
+</div>
+
+<div class="card">
+  <h3>Mes 5 objectifs</h3>
+  <div id="goals"></div>
+</div>
+
+<div class="card">
+  <h3>Historique de mes journées</h3>
+  <p class="muted">Tes anciennes journées restent enregistrées.</p>
+  <div id="history"></div>
+</div>
+
+<script>
+const objectives = [
+  ["Faire du sport", "Au moins 30 minutes par jour"],
+  ["Apprendre l’anglais", "3 heures par jour"],
+  ["Marcher seul", "Au moins 30 minutes par jour"],
+  ["Aborder une fille", "Au moins une par jour, avec respect"],
+  ["Dormir à 22 h", "Respecter mon heure de coucher"]
+];
+
+const KEY = "avem_programme_quotidien_v1";
+let records = {};
+try {
+  records = JSON.parse(localStorage.getItem(KEY) || "{}");
+} catch (e) {
+  records = {};
+}
+
+function dateKey() {
+  const d = new Date();
+  return d.getFullYear() + "-" +
+    String(d.getMonth()+1).padStart(2,"0") + "-" +
+    String(d.getDate()).padStart(2,"0");
+}
+
+function dateLabel(key) {
+  return new Date(key + "T12:00:00").toLocaleDateString("fr-FR", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric"
+  });
+}
+
+function save() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(records));
+  } catch (e) {
+    alert("La sauvegarde a échoué. Vérifie les réglages de ton navigateur.");
+  }
+}
+
+function ensureToday() {
+  const key = dateKey();
+  if (!records[key]) records[key] = [false, false, false, false, false];
+  return key;
+}
+
+function render() {
+  const key = ensureToday();
+  document.getElementById("today").textContent = dateLabel(key);
+  const values = records[key];
+
+  document.getElementById("goals").innerHTML = objectives.map((g, i) => `
+    <div class="goal">
+      <input type="checkbox" id="goal${i}" ${values[i] ? "checked" : ""}
+        aria-label="${g[0]}" onchange="toggle(${i}, this.checked)">
+      <label for="goal${i}">
+        <strong>${g[0]}</strong>
+        <small>${g[1]}</small>
+      </label>
+    </div>
+  `).join("");
+
+  const n = values.filter(Boolean).length;
+  document.getElementById("count").textContent = n;
+  document.getElementById("bar").style.width = (n * 20) + "%";
+  document.getElementById("message").textContent =
+    n === 5 ? "Bravo ! Tes 5 objectifs sont accomplis !" :
+    n === 0 ? "Commence par un premier objectif." :
+    "Continue ! Tu as accompli " + n + " objectif(s).";
+
+  const days = Object.keys(records).sort().reverse();
+  document.getElementById("history").innerHTML = days.map(day => {
+    const v = records[day];
+    const total = v.filter(Boolean).length;
+    const detail = objectives.map((g, i) =>
+      (v[i] ? "✓ " : "○ ") + g[0]
+    ).join("<br>");
+    return `<div class="history-row">
+      <strong>${dateLabel(day)}</strong>
+      <p>${total}/5 objectifs accomplis</p>
+      <details><summary>Voir les détails</summary><p>${detail}</p></details>
+    </div>`;
+  }).join("");
+}
+
+function toggle(i, value) {
+  const key = ensureToday();
+  records[key][i] = value;
+  save();
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
